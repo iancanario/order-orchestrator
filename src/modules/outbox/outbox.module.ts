@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { OutboxEventEntity } from './entities/outbox-event.entity';
 import { OutboxEventRepository } from './repositories/outbox-event.repository';
+import { IOutboxEventRepository } from './interfaces/outbox-event.repository.interface';
 
 @Module({
   imports: [
@@ -11,10 +12,13 @@ import { OutboxEventRepository } from './repositories/outbox-event.repository';
     ]),
   ],
   providers: [
-    OutboxEventRepository,
+    {
+      provide: IOutboxEventRepository,
+      useClass: OutboxEventRepository,
+    },
   ],
   exports: [
-    OutboxEventRepository,
+    IOutboxEventRepository,
   ],
 })
 export class OutboxModule {}

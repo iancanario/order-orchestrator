@@ -1,20 +1,37 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  EntityManager,
+  Repository,
+} from 'typeorm';
 
 import { OutboxEventEntity } from '../entities/outbox-event.entity';
+import { IOutboxEventRepository } from '../interfaces/outbox-event.repository.interface';
 
 @Injectable()
-export class OutboxEventRepository {
+export class OutboxEventRepository
+  implements IOutboxEventRepository
+{
   constructor(
     @InjectRepository(OutboxEventEntity)
     private readonly repository: Repository<OutboxEventEntity>,
   ) {}
 
+  private getRepository(manager?: EntityManager) {
+    return manager
+      ? manager.getRepository(OutboxEventEntity)
+      : this.repository;
+  }
+
   async create(
-    event: OutboxEventEntity,
+    event: Partial<OutboxEventEntity>,
+    manager?: EntityManager,
   ): Promise<OutboxEventEntity> {
-    return this.repository.save(event);
+    const repository = this.getRepository(manager);
+
+    const entity = repository.create(event);
+
+    return repository.save(entity);
   }
 
   async findPending(

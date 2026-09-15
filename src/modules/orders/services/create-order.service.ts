@@ -6,39 +6,41 @@ import { DataSource } from 'typeorm';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { OrderEntity } from '../entities/order.entity';
-import { OrderItemEntity } from '../entities/order-item.entity';
 import { OrderStatus } from '../enums/order-status.enum';
-import { OrderRepository } from '../interfaces/order.repository.interface';
+import { IOrderRepository } from '../interfaces/order.repository.interface';
 import { CalculateOrderTotalService } from './calculate-order-total.service';
-import { OutboxEventEntity } from '../../outbox/entities/outbox-event.entity';
+import { IOutboxEventRepository } from '../../outbox/interfaces/outbox-event.repository.interface';
 
 @Injectable()
 export class CreateOrderService {
   constructor(
     private readonly dataSource: DataSource,
-    private readonly orderRepository: OrderRepository,
+    private readonly orderRepository: IOrderRepository,
+    private readonly outboxEventRepository: IOutboxEventRepository,
     private readonly calculateOrderTotalService: CalculateOrderTotalService,
   ) {}
 
   async execute(
     dto: CreateOrderDto,
   ): Promise<OrderEntity> {
-    const existingOrder =
+    const existingByIdempotency =
       await this.orderRepository.findByIdempotencyKey(
         dto.idempotency_key,
       );
 
-    if (existingOrder) {
-      return existingOrder;
+    if (existingByIdempotency) {
+      return existingByIdempotency;
     }
 
-    const existingOrderByExternalId =
+    const existingByOrderId =
       await this.orderRepository.findByOrderId(
         dto.order_id,
       );
 
-    if (existingOrderByExternalId) {
-      return existingOrderByExternalId;
+    if (existingByOrderId) {
+      throw new ConflictException(
+        'Order already exists',
+      );
     }
 
     const totalAmount =
@@ -48,13 +50,7 @@ export class CreateOrderService {
 
     return this.dataSource.transaction(
       async (manager) => {
-        const orderRepository =
-          manager.getRepository(OrderEntity);
-
-        const outboxRepository =
-          manager.getRepository(OutboxEventEntity);
-
-        const order = orderRepository.create({
+        const order = manager.create(OrderEntity, {
           order_id: dto.order_id,
           idempotency_key: dto.idempotency_key,
           customer_email: dto.customer.email,
@@ -71,28 +67,38 @@ export class CreateOrderService {
             sku: item.sku,
             qty: item.qty,
             unit_price: item.unit_price.toFixed(2),
-          })) as OrderItemEntity[],
+          })),
         });
 
         const savedOrder =
-          await orderRepository.save(order);
+          await this.orderRepository.create(
+            order,
+            manager,
+          );
 
-        const outboxEvent =
-          outboxRepository.create({
+        await this.outboxEventRepository.create(
+          {
             event_type:
               'ORDER_CURRENCY_CONVERSION_REQUESTED',
-            aggregate_type: 'ORDER',
-            aggregate_id: savedOrder.id,
-            payload: {
-              order_id: savedOrder.id,
-            },
-            published: false,
-            attempts: 0,
-            last_error: null,
-            published_at: null,
-          });
 
-        await outboxRepository.save(outboxEvent);
+            aggregate_type: 'order',
+
+            aggregate_id: savedOrder.id,
+
+            payload: {
+              order_uuid: savedOrder.id,
+            },
+
+            published: false,
+
+            attempts: 0,
+
+            last_error: null,
+
+            published_at: null,
+          },
+          manager,
+        );
 
         return savedOrder;
       },
