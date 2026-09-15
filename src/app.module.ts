@@ -3,12 +3,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { appConfig } from './commons/config/app.config';
 import { databaseConfig } from './commons/config/database.config';
+import { queueConfig } from './commons/config/queue.config';
+import { QueueModule } from './modules/queue/queue.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig]
+      load: [appConfig, databaseConfig, queueConfig]
     }),
      TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -24,6 +26,7 @@ import { databaseConfig } from './commons/config/database.config';
         synchronize: false,
       }),
     }),
+    QueueModule
   ],
 })
 export class AppModule {}
