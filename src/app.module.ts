@@ -6,6 +6,7 @@ import { databaseConfig } from './commons/config/database.config';
 import { queueConfig } from './commons/config/queue.config';
 import { QueueModule } from './modules/queue/queue.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { OutboxModule } from './modules/outbox/outbox.module';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { OrdersModule } from './modules/orders/orders.module';
       }),
     }),
     QueueModule,
-    OrdersModule
+    OrdersModule,
+    OutboxModule
   ],
 })
 export class AppModule {}
