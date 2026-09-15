@@ -8,6 +8,7 @@ import { CalculateOrderTotalService } from './services/calculate-order-total.ser
 import { CreateOrderService } from './services/create-order.service';
 import { TypeOrmOrderRepository } from './repositories/typeorm-order.repository';
 import { IOrderRepository } from './interfaces/order.repository.interface';
+import { OrdersController } from './controllers/orders.controller';
 
 @Module({
   imports: [
@@ -17,7 +18,9 @@ import { IOrderRepository } from './interfaces/order.repository.interface';
     ]),
     OutboxModule,
   ],
-
+  controllers: [
+    OrdersController,
+  ],
   providers: [
     CalculateOrderTotalService,
     CreateOrderService,
