@@ -52,18 +52,18 @@ export class OutboxEventEntity {
   last_error!: string | null;
 
   @Column({
-    type: 'timestamptz',
+    type: 'timestamp with time zone',
     nullable: true,
   })
   published_at!: Date | null;
 
   @CreateDateColumn({
-    type: 'timestamptz',
+    type: 'timestamp with time zone',
   })
   created_at!: Date;
 
   @UpdateDateColumn({
-    type: 'timestamptz',
+    type: 'timestamp with time zone',
   })
   updated_at!: Date;
 }

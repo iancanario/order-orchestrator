@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { databaseConfig } from '../config/database.config';
 import { OrderEntity } from '../../modules/orders/entities/order.entity';
 import { OrderItemEntity } from '../../modules/orders/entities/order-item.entity';
+import { OutboxEventEntity } from 'src/modules/outbox/entities/outbox-event.entity';
 
 const config = databaseConfig();
 
@@ -19,6 +20,7 @@ export const AppDataSource = new DataSource({
   entities: [
     OrderEntity,
     OrderItemEntity,
+    OutboxEventEntity
   ],
 
   migrations: [
