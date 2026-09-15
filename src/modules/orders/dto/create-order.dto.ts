@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   IsArray,
   IsEmail,
   IsInt,
@@ -7,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -21,7 +23,11 @@ export class CreateOrderItemDto {
   @Min(1)
   qty!: number;
 
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsNumber(
+    {
+      maxDecimalPlaces: 2,
+    },
+  )
   @IsPositive()
   unit_price!: number;
 }
@@ -45,12 +51,13 @@ export class CreateOrderDto {
   customer!: CreateOrderCustomerDto;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items!: CreateOrderItemDto[];
 
   @IsString()
-  @Length(3, 3)
+  @Matches(/^[A-Za-z]{3}$/)
   currency!: string;
 
   @IsUUID()

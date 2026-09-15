@@ -60,7 +60,7 @@ export class CreateOrderService {
           customer_email: dto.customer.email,
           customer_name: dto.customer.name,
           currency: dto.currency.toUpperCase(),
-          total_amount: totalAmount.toFixed(2),
+          total_amount: totalAmount,
           status: OrderStatus.RECEIVED,
           converted_amount: null,
           converted_currency: null,

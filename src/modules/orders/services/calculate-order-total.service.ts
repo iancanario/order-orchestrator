@@ -1,13 +1,21 @@
-import { Injectable } from "@nestjs/common";
-import { CreateOrderItemDto } from "../dto/create-order.dto";
+import { Injectable } from '@nestjs/common';
+import Decimal from 'decimal.js';
+import { CreateOrderItemDto } from '../dto/create-order.dto';
 
 @Injectable()
 export class CalculateOrderTotalService {
-  execute(items: CreateOrderItemDto[]): number {
-    return items.reduce(
-      (total, item) =>
-        total + item.qty * item.unit_price,
-      0,
+  execute(items: CreateOrderItemDto[]): string {
+    const total = items.reduce(
+      (accumulator, item) => {
+        const unitPrice = new Decimal(item.unit_price);
+
+        return accumulator.plus(
+          unitPrice.mul(item.qty),
+        );
+      },
+      new Decimal(0),
     );
+
+    return total.toFixed(2);
   }
 }

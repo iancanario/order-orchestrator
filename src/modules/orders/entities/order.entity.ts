@@ -64,6 +64,7 @@ export class OrderEntity {
   @Column({
     type: 'enum',
     enum: OrderStatus,
+    enumName: 'order_status_enum',
     default: OrderStatus.RECEIVED,
   })
   status!: OrderStatus;
