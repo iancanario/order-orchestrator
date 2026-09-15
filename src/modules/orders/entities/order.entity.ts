@@ -12,12 +12,6 @@ import { OrderStatus } from '../enums/order-status.enum';
 import { OrderItemEntity } from './order-item.entity';
 
 @Entity('orders')
-@Index('uq_orders_order_id', ['order_id'], { unique: true })
-@Index('uq_orders_idempotency_key', ['idempotency_key'], {
-  unique: true,
-})
-@Index('idx_orders_status', ['status'])
-@Index('idx_orders_created_at', ['created_at'])
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
