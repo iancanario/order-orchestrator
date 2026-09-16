@@ -4,12 +4,11 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   Channel,
-  ChannelWrapper,
+  ChannelModel,
   connect,
-} from 'amqp-connection-manager';
+} from 'amqplib';
 
 import {
   QUEUE_EXCHANGES,
@@ -21,67 +20,74 @@ import {
 export class RabbitMQService
   implements OnModuleInit, OnModuleDestroy
 {
-  private readonly logger = new Logger(RabbitMQService.name);
+  private readonly logger = new Logger(
+    RabbitMQService.name,
+  );
 
-  private connection!: ReturnType<typeof connect>;
-  private channel!: ChannelWrapper;
-
-  constructor(
-    private readonly configService: ConfigService,
-  ) {}
+  private connection!: ChannelModel;
+  private channel!: Channel;
 
   async onModuleInit(): Promise<void> {
-    const host = this.configService.getOrThrow<string>(
-      'queue.host',
-    );
+    const host =
+      process.env.RABBITMQ_HOST ?? 'localhost';
 
-    const port = this.configService.getOrThrow<number>(
-      'queue.port',
-    );
+    const port =
+      process.env.RABBITMQ_PORT ?? '5672';
 
-    const username = this.configService.getOrThrow<string>(
-      'queue.username',
-    );
+    const username =
+      process.env.RABBITMQ_USER ?? 'rabbitmq';
 
-    const password = this.configService.getOrThrow<string>(
-      'queue.password',
-    );
+    const password =
+      process.env.RABBITMQ_PASSWORD ?? 'rabbitmq';
 
-    const vhost = this.configService.getOrThrow<string>(
-      'queue.vhost',
-    );
+    const vhost =
+      process.env.RABBITMQ_VHOST ?? '/';
 
     const url =
-      `amqp://${encodeURIComponent(username)}` +
-      `:${encodeURIComponent(password)}` +
-      `@${host}:${port}` +
-      `/${encodeURIComponent(vhost)}`;
+      `amqp://${username}:${password}` +
+      `@${host}:${port}${vhost}`;
 
-    this.connection = connect([url]);
+    this.connection = await connect(url);
 
-    this.connection.on('connect', () => {
-      this.logger.log('RabbitMQ connected');
-    });
+    this.channel =
+      await this.connection.createChannel();
 
-    this.connection.on('disconnect', (params) => {
-      this.logger.error(
-        `RabbitMQ disconnected: ${params.err?.message}`,
-      );
-    });
+    await this.setupTopology();
 
-    this.channel = this.connection.createChannel({
-      setup: async (channel: Channel) => {
-        await this.setupTopology(channel);
-      },
-    });
-
-    await this.channel.waitForConnect();
+    this.logger.log(
+      'RabbitMQ connection established',
+    );
   }
 
-  private async setupTopology(
-    channel: Channel,
+  async onModuleDestroy(): Promise<void> {
+    await this.channel?.close();
+    await this.connection?.close();
+  }
+
+  async publish(
+    routingKey: string,
+    message: Record<string, unknown>,
   ): Promise<void> {
-    await channel.assertExchange(
+    const published =
+      this.channel.publish(
+        QUEUE_EXCHANGES.ORDERS,
+        routingKey,
+        Buffer.from(JSON.stringify(message)),
+        {
+          persistent: true,
+          contentType: 'application/json',
+        },
+      );
+
+    if (!published) {
+      throw new Error(
+        `RabbitMQ rejected message: ${routingKey}`,
+      );
+    }
+  }
+
+  private async setupTopology(): Promise<void> {
+    await this.channel.assertExchange(
       QUEUE_EXCHANGES.ORDERS,
       'direct',
       {
@@ -89,54 +95,30 @@ export class RabbitMQService
       },
     );
 
-    await channel.assertQueue(
+    await this.channel.assertQueue(
       QUEUES.ORDERS_CURRENCY_CONVERSION,
       {
         durable: true,
       },
     );
 
-    await channel.assertQueue(
-      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
-      {
-        durable: true,
-      },
-    );
-
-    await channel.bindQueue(
+    await this.channel.bindQueue(
       QUEUES.ORDERS_CURRENCY_CONVERSION,
       QUEUE_EXCHANGES.ORDERS,
       ROUTING_KEYS.ORDER_CURRENCY_CONVERSION,
     );
 
-    await channel.bindQueue(
+    await this.channel.assertQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
+      {
+        durable: true,
+      },
+    );
+
+    await this.channel.bindQueue(
       QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
       QUEUE_EXCHANGES.ORDERS,
       ROUTING_KEYS.ORDERS_CURRENCY_CONVERSION_DLQ,
     );
-  }
-
-  async publish(
-    routingKey: string,
-    message: unknown,
-  ): Promise<void> {
-    await this.channel.publish(
-      QUEUE_EXCHANGES.ORDERS,
-      routingKey,
-      Buffer.from(JSON.stringify(message)),
-      {
-        persistent: true,
-        contentType: 'application/json',
-      },
-    );
-  }
-
-  getChannel(): ChannelWrapper {
-    return this.channel;
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.channel?.close();
-    await this.connection?.close();
   }
 }
