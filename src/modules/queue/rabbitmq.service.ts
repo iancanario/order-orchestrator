@@ -121,4 +121,46 @@ export class RabbitMQService
       ROUTING_KEYS.ORDERS_CURRENCY_CONVERSION_DLQ,
     );
   }
+
+  async consume(
+    queue: string,
+    handler: (
+      message: Record<string, unknown>,
+    ) => Promise<void>,
+  ): Promise<void> {
+    await this.channel.prefetch(1);
+
+    await this.channel.consume(
+      queue,
+      async (message) => {
+        if (!message) {
+          return;
+        }
+
+        try {
+          const payload =
+            JSON.parse(
+              message.content.toString(),
+            ) as Record<string, unknown>;
+
+          await handler(payload);
+
+          this.channel.ack(message);
+        } catch (error) {
+          this.logger.error(
+            `Failed to process message from ${queue}`,
+            error instanceof Error
+              ? error.stack
+              : String(error),
+          );
+
+          this.channel.nack(
+            message,
+            false,
+            false,
+          );
+        }
+      },
+    );
+  }
 }

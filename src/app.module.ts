@@ -1,18 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { appConfig } from './commons/config/app.config';
 import { databaseConfig } from './commons/config/database.config';
 import { queueConfig } from './commons/config/queue.config';
 import { QueueModule } from './modules/queue/queue.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
+import { currencyConfig } from './commons/config/currency.config';
+import { CurrencyModule } from './modules/currency/currency.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, queueConfig]
+      load: [appConfig, databaseConfig, queueConfig, currencyConfig]
     }),
      TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -30,7 +33,8 @@ import { OutboxModule } from './modules/outbox/outbox.module';
     }),
     QueueModule,
     OrdersModule,
-    OutboxModule
+    OutboxModule,
+    CurrencyModule
   ],
 })
 export class AppModule {}

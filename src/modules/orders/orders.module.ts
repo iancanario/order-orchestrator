@@ -29,5 +29,8 @@ import { OrdersController } from './controllers/orders.controller';
       useClass: TypeOrmOrderRepository,
     },
   ],
+  exports: [
+    IOrderRepository,
+  ]
 })
 export class OrdersModule {}
