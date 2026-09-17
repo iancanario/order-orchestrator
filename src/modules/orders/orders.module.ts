@@ -11,6 +11,7 @@ import { IOrderRepository } from './interfaces/order.repository.interface';
 import { OrdersController } from './controllers/orders.controller';
 import { ListOrdersService } from './services/list-orders.service';
 import { OrdersWebhookController } from './controllers/orders-webhook.controller';
+import { GetOrderService } from './services/get-order.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OrdersWebhookController } from './controllers/orders-webhook.controller
     CalculateOrderTotalService,
     CreateOrderService,
     ListOrdersService,
+    GetOrderService,
     {
       provide: IOrderRepository,
       useClass: TypeOrmOrderRepository,
