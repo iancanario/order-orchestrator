@@ -8,6 +8,7 @@ import { GetExchangeRateService } from './services/get-exchange-rate.service';
 import { ConvertOrderCurrencyService } from './services/convert-order-currency.service';
 import { CurrencyConversionWorker } from './workers/currency-conversion.worker';
 import { OrdersModule } from '../orders/orders.module';
+import { FailOrderConversionService } from './services/fail-order-conversion.service';
 
 @Module({
   imports: [
@@ -26,11 +27,13 @@ import { OrdersModule } from '../orders/orders.module';
     },
     GetExchangeRateService,
     ConvertOrderCurrencyService,
-    CurrencyConversionWorker
+    CurrencyConversionWorker,
+    FailOrderConversionService
   ],
   exports: [
     GetExchangeRateService,
     ConvertOrderCurrencyService,
+    FailOrderConversionService
   ],
 })
 export class CurrencyModule {}

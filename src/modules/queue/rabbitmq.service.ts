@@ -67,21 +67,86 @@ export class RabbitMQService
   async publish(
     routingKey: string,
     message: Record<string, unknown>,
+    options?: {
+      headers?: Record<string, unknown>;
+    },
   ): Promise<void> {
     const published =
       this.channel.publish(
         QUEUE_EXCHANGES.ORDERS,
         routingKey,
-        Buffer.from(JSON.stringify(message)),
+        Buffer.from(
+          JSON.stringify(message),
+        ),
         {
           persistent: true,
           contentType: 'application/json',
+          headers: options?.headers,
         },
       );
 
     if (!published) {
       throw new Error(
         `RabbitMQ rejected message: ${routingKey}`,
+      );
+    }
+  }
+
+  async publishRetry(
+    routingKey: string,
+    message: Record<string, unknown>,
+    retryCount: number,
+  ): Promise<void> {
+    const published =
+      this.channel.publish(
+        QUEUE_EXCHANGES.ORDERS_RETRY,
+        routingKey,
+        Buffer.from(
+          JSON.stringify(message),
+        ),
+        {
+          persistent: true,
+          contentType: 'application/json',
+
+          headers: {
+            'x-retry-count': retryCount,
+          },
+        },
+      );
+
+    if (!published) {
+      throw new Error(
+        `RabbitMQ rejected retry message: ${routingKey}`,
+      );
+    }
+  }
+
+  async publishToDlq(
+    message: Record<string, unknown>,
+    retryCount: number,
+  ): Promise<void> {
+    const published =
+      this.channel.publish(
+        QUEUE_EXCHANGES.ORDERS,
+        ROUTING_KEYS.ORDER_CURRENCY_CONVERSION_DLQ,
+        Buffer.from(
+          JSON.stringify(message),
+        ),
+        {
+          persistent: true,
+          contentType: 'application/json',
+
+          headers: {
+            'x-retry-count': retryCount,
+            'x-failure-reason':
+              'MAX_RETRIES_EXCEEDED',
+          },
+        },
+      );
+
+    if (!published) {
+      throw new Error(
+        'RabbitMQ rejected DLQ message',
       );
     }
   }
@@ -95,37 +160,44 @@ export class RabbitMQService
       },
     );
 
-    await this.channel.assertQueue(
-      QUEUES.ORDERS_CURRENCY_CONVERSION,
+    await this.channel.assertExchange(
+      QUEUE_EXCHANGES.ORDERS_RETRY,
+      'direct',
       {
         durable: true,
       },
     );
 
-    await this.channel.bindQueue(
-      QUEUES.ORDERS_CURRENCY_CONVERSION,
-      QUEUE_EXCHANGES.ORDERS,
-      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION,
+    await this.assertMainQueue();
+
+    await this.assertRetryQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_RETRY_1,
+      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION_RETRY_1,
+      1000,
     );
 
-    await this.channel.assertQueue(
-      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
-      {
-        durable: true,
-      },
+    await this.assertRetryQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_RETRY_2,
+      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION_RETRY_2,
+      2000,
     );
 
-    await this.channel.bindQueue(
-      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
-      QUEUE_EXCHANGES.ORDERS,
-      ROUTING_KEYS.ORDERS_CURRENCY_CONVERSION_DLQ,
+    await this.assertRetryQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_RETRY_3,
+      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION_RETRY_3,
+      4000,
     );
+
+    await this.assertDlq();
   }
 
   async consume(
     queue: string,
     handler: (
       message: Record<string, unknown>,
+      metadata: {
+        retryCount: number;
+      },
     ) => Promise<void>,
   ): Promise<void> {
     await this.channel.prefetch(1);
@@ -143,7 +215,19 @@ export class RabbitMQService
               message.content.toString(),
             ) as Record<string, unknown>;
 
-          await handler(payload);
+          const retryCount =
+            Number(
+              message.properties.headers?.[
+                'x-retry-count'
+              ] ?? 0,
+            );
+
+          await handler(
+            payload,
+            {
+              retryCount,
+            },
+          );
 
           this.channel.ack(message);
         } catch (error) {
@@ -161,6 +245,65 @@ export class RabbitMQService
           );
         }
       },
+    );
+  }
+
+  private async assertMainQueue(): Promise<void> {
+    await this.channel.assertQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION,
+      {
+        durable: true,
+      },
+    );
+
+    await this.channel.bindQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION,
+      QUEUE_EXCHANGES.ORDERS,
+      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION,
+    );
+  }
+
+  private async assertRetryQueue(
+    queue: string,
+    routingKey: string,
+    ttl: number,
+  ): Promise<void> {
+    await this.channel.assertQueue(
+      queue,
+      {
+        durable: true,
+
+        arguments: {
+          'x-message-ttl': ttl,
+
+          'x-dead-letter-exchange':
+            QUEUE_EXCHANGES.ORDERS,
+
+          'x-dead-letter-routing-key':
+            ROUTING_KEYS.ORDER_CURRENCY_CONVERSION,
+        },
+      },
+    );
+
+    await this.channel.bindQueue(
+      queue,
+      QUEUE_EXCHANGES.ORDERS_RETRY,
+      routingKey,
+    );
+  }
+
+  private async assertDlq(): Promise<void> {
+    await this.channel.assertQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
+      {
+        durable: true,
+      },
+    );
+
+    await this.channel.bindQueue(
+      QUEUES.ORDERS_CURRENCY_CONVERSION_DLQ,
+      QUEUE_EXCHANGES.ORDERS,
+      ROUTING_KEYS.ORDER_CURRENCY_CONVERSION_DLQ,
     );
   }
 }
