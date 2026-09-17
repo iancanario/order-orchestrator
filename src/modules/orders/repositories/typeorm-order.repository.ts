@@ -7,6 +7,7 @@ import {
 
 import { OrderEntity } from '../entities/order.entity';
 import { IOrderRepository } from '../interfaces/order.repository.interface';
+import { OrderStatus } from '../enums/order-status.enum';
 
 @Injectable()
 export class TypeOrmOrderRepository
@@ -55,6 +56,27 @@ export class TypeOrmOrderRepository
       },
       relations: { items: true },
     });
+  }
+
+  async findAll(
+    status?: OrderStatus,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
+    data: OrderEntity[];
+    total: number;
+  }> {
+    const [data, total] =
+    await this.repository.findAndCount({
+      where: status ? { status } : {},
+      relations: { items: true },
+      order: {
+        created_at: 'DESC',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total };
   }
 
   async create(

@@ -1,32 +1,33 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { CreateOrderService } from '../services/create-order.service';
+import { ListOrdersDto } from '../dto/list-orders.dto';
+import { ListOrdersService } from '../services/list-orders.service';
 
-@Controller('webhooks/orders')
+@Controller('orders')
 export class OrdersController {
   constructor(
     private readonly createOrderService: CreateOrderService,
+    private readonly listOrdersService: ListOrdersService,
   ) {}
 
-  @Post()
-  @HttpCode(HttpStatus.ACCEPTED)
-  async create(
-    @Body() dto: CreateOrderDto,
+@Get()
+  async findAll(
+    @Query() query: ListOrdersDto,
   ) {
-    const order =
-      await this.createOrderService.execute(dto);
-
-    return {
-      id: order.id,
-      order_id: order.order_id,
-      status: order.status,
-    };
+    return this.listOrdersService.execute(
+      query.status,
+      query.page,
+      query.limit,
+    );
   }
 }

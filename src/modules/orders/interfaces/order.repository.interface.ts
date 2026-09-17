@@ -1,5 +1,6 @@
 import { OrderEntity } from '../entities/order.entity';
 import { EntityManager } from 'typeorm';
+import { OrderStatus } from '../enums/order-status.enum';
 
 export abstract class IOrderRepository {
   abstract findById(
@@ -26,4 +27,13 @@ export abstract class IOrderRepository {
     order: OrderEntity,
     manager?: EntityManager,
   ): Promise<OrderEntity>;
+
+  abstract findAll(
+    status?: OrderStatus,
+    page?: number,
+    limit?: number,
+  ): Promise<{
+    data: OrderEntity[];
+    total: number;
+  }>;
 }

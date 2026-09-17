@@ -9,6 +9,8 @@ import { CreateOrderService } from './services/create-order.service';
 import { TypeOrmOrderRepository } from './repositories/typeorm-order.repository';
 import { IOrderRepository } from './interfaces/order.repository.interface';
 import { OrdersController } from './controllers/orders.controller';
+import { ListOrdersService } from './services/list-orders.service';
+import { OrdersWebhookController } from './controllers/orders-webhook.controller';
 
 @Module({
   imports: [
@@ -20,10 +22,12 @@ import { OrdersController } from './controllers/orders.controller';
   ],
   controllers: [
     OrdersController,
+    OrdersWebhookController
   ],
   providers: [
     CalculateOrderTotalService,
     CreateOrderService,
+    ListOrdersService,
     {
       provide: IOrderRepository,
       useClass: TypeOrmOrderRepository,
